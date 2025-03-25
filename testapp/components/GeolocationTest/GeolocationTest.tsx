@@ -16,10 +16,33 @@ export default function GeolocationTest() {
     lat: null,
     lng: null,
   });
+  const [locationList, setLocationList] = useState<{ lat: number | null; lng: number | null }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [customIcon, setCustomIcon] = useState<any>(null);
   const [isClient, setIsClient] = useState(false);
 
+
+  // 🔥 Gọi API để lấy vị trí mới nhất từ server khi component mount
+  const fetchLatestLocation = async () => {
+    try {
+      const res = await fetch("/api/get-location");
+      const data = await res.json();
+      if (data.success) {
+        console.log(data);
+        if (data.data.length > 0) {
+          const listLocation = data.data.map((item: any, index: number) => {
+            return { lat: item.lat, lng: item.lng };
+          })
+          setLocationList(listLocation);
+          console.log(listLocation)
+        }
+      } else {
+        console.warn("Không có dữ liệu vị trí:", data.error);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy vị trí từ server:", error);
+    }
+  }
 
 
   useEffect(() => {
@@ -45,23 +68,13 @@ export default function GeolocationTest() {
       setError("Trình duyệt không hỗ trợ Geolocation.");
       return;
     }
-
-    // 🔥 Gọi API để lấy vị trí mới nhất từ server khi component mount
-    async function fetchLatestLocation() {
-      try {
-        const res = await fetch("/api/get-location");
-        const data = await res.json();
-        if (data.success) {
-          console.log(data.succes);
-        } else {
-          console.warn("Không có dữ liệu vị trí:", data.error);
-        }
-      } catch (error) {
-        console.error("Lỗi khi lấy vị trí từ server:", error);
-      }
-    }
-
+    console.log("fecth")
     fetchLatestLocation();
+
+    // 🔥 Cập nhật mỗi 10 giây
+    const intervalId = setInterval(() => {
+      fetchLatestLocation();
+    }, 10000);
 
 
 
@@ -83,7 +96,6 @@ export default function GeolocationTest() {
           });
 
           const data = await response.json();
-          console.log("Vị trí đã được cập nhật:", data);
         } catch (error) {
           console.error("Lỗi khi gửi vị trí:", error);
         }
@@ -98,6 +110,8 @@ export default function GeolocationTest() {
       }
     );
     return () => {
+      // Dọn dẹp interval khi component bị unmount
+      clearInterval(intervalId);
       navigator.geolocation.clearWatch(watchId);
     };
   }, []);
@@ -124,12 +138,18 @@ export default function GeolocationTest() {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      <Marker
+      {/* <Marker
         position={[location.lat, location.lng] as [number, number]}
         icon={customIcon}
       >
         <Popup>Vị trí của bạn!</Popup>
-      </Marker>
+      </Marker> */}
+      {locationList.map((loc, index) => (
+        <Marker key={index} position={[loc.lat, loc.lng] as [number, number]} icon={customIcon}>
+          <Popup>Vị trí của bạn!
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   );
 }
