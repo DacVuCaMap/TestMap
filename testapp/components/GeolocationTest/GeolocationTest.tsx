@@ -11,6 +11,7 @@ const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), 
 const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
 
 export default function GeolocationTest() {
+
   const [location, setLocation] = useState<{ lat: number | null; lng: number | null }>({
     lat: null,
     lng: null,
@@ -18,6 +19,8 @@ export default function GeolocationTest() {
   const [error, setError] = useState<string | null>(null);
   const [customIcon, setCustomIcon] = useState<any>(null);
   const [isClient, setIsClient] = useState(false);
+
+
 
   useEffect(() => {
     // Xác nhận client-side render
@@ -43,12 +46,47 @@ export default function GeolocationTest() {
       return;
     }
 
+    // 🔥 Gọi API để lấy vị trí mới nhất từ server khi component mount
+    async function fetchLatestLocation() {
+      try {
+        const res = await fetch("/api/get-location");
+        const data = await res.json();
+        if (data.success) {
+          console.log(data.succes);
+        } else {
+          console.warn("Không có dữ liệu vị trí:", data.error);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy vị trí từ server:", error);
+      }
+    }
+
+    fetchLatestLocation();
+
+
+
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        setLocation({
+      async (position) => {
+        const newLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+
+        setLocation(newLocation);
+
+        // Gửi dữ liệu lên server
+        try {
+          const response = await fetch("/api/update-location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newLocation),
+          });
+
+          const data = await response.json();
+          console.log("Vị trí đã được cập nhật:", data);
+        } catch (error) {
+          console.error("Lỗi khi gửi vị trí:", error);
+        }
       },
       (err) => {
         setError(err.message);
@@ -59,7 +97,6 @@ export default function GeolocationTest() {
         maximumAge: 0,
       }
     );
-
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
